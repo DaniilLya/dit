@@ -1,0 +1,121 @@
+services:
+  postgres:
+    image: postgres:17
+    container_name: payment-history-postgres
+    environment:
+      POSTGRES_DB: payment_history
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d payment_history"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  liquibase:
+    image: liquibase/liquibase:4.31
+    container_name: payment-history-liquibase
+    depends_on:
+      postgres:
+        condition: service_healthy
+    command:
+      - --search-path=/liquibase/changelog
+      - --changelog-file=master.yaml
+      - --url=jdbc:postgresql://postgres:5432/payment_history
+      - --username=postgres
+      - --password=postgres
+      - update
+    volumes:
+      - ./liquibase:/liquibase/changelog
+
+  app-plug:
+    build:
+      context: ..
+      dockerfile: app-plug/Dockerfile
+    container_name: app-plug
+    ports:
+      - "8080:8080"
+
+  payment-history-service:
+    build:
+      context: ..
+      dockerfile: payment-history-service/Dockerfile
+    container_name: payment-history-service
+    depends_on:
+      postgres:
+        condition: service_healthy
+      liquibase:
+        condition: service_completed_successfully
+      app-plug:
+        condition: service_started
+    environment:
+      SPRING_R2DBC_URL: r2dbc:postgresql://postgres:5432/payment_history
+      SPRING_R2DBC_USERNAME: postgres
+      SPRING_R2DBC_PASSWORD: postgres
+      APP_PLUG_BASE_URL: http://app-plug:8080
+    ports:
+      - "8081:8080"
+
+  frontend:
+    build:
+      context: ..
+      dockerfile: frontend/Dockerfile
+    container_name: frontend
+    depends_on:
+      app-plug:
+        condition: service_started
+      payment-history-service:
+        condition: service_started
+    ports:
+      - "8082:80"
+
+  prometheus:
+    image: prom/prometheus:v3.5.0
+    container_name: prometheus
+    depends_on:
+      app-plug:
+        condition: service_started
+      payment-history-service:
+        condition: service_started
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+
+  grafana:
+    image: grafana/grafana:12.1.1
+    container_name: grafana
+    depends_on:
+      prometheus:
+        condition: service_started
+    ports:
+      - "3000:3000"
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: admin
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+
+  k6:
+    image: grafana/k6:1.2.3
+    container_name: k6
+    depends_on:
+      payment-history-service:
+        condition: service_started
+    environment:
+      BASE_URL: http://payment-history-service:8080
+      DURATION: 1m
+    volumes:
+      - ./k6:/scripts:ro
+    command:
+      - run
+      - /scripts/payment-history-load.js
+
+volumes:
+  postgres_data:
+  grafana_data:

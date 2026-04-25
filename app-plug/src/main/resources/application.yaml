@@ -1,0 +1,20 @@
+spring:
+  application:
+    name: app-plug
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus
+  endpoint:
+    health:
+      show-details: always
+
+random-generator:
+  min-big-decimal-value: 1.0
+  max-big-decimal-value: 100.0
+
+logging:
+  level:
+    org.springframework.boot.context.properties: TRACE

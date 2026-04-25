@@ -1,0 +1,4 @@
+databaseChangeLog:
+  - include:
+      file: migrations/release-1/payment/26_04_2026_create_payment_history.yaml
+      relativeToChangelogFile: true

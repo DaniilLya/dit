@@ -1,0 +1,20 @@
+spring:
+  application:
+    name: payment-history-service
+  r2dbc:
+    url: ${SPRING_R2DBC_URL:r2dbc:postgresql://localhost:5432/payment_history}
+    username: ${SPRING_R2DBC_USERNAME:postgres}
+    password: ${SPRING_R2DBC_PASSWORD:postgres}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus
+  endpoint:
+    health:
+      show-details: always
+
+clients:
+  app-plug:
+    base-url: ${APP_PLUG_BASE_URL:http://localhost:8080}

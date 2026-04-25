@@ -1,0 +1,8 @@
+databaseChangeLog:
+  - changeSet:
+      id: 2026-04-26-01-create-payment-history
+      author: codex
+      changes:
+        - sqlFile:
+            path: 26_04_2026_create_payment_history.sql
+            relativeToChangelogFile: true
